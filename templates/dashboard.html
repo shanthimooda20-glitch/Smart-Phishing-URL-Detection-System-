@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Security dashboard &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="section-head">
+        <div>
+            <h1 style="font-size:1.8rem;">Security dashboard</h1>
+            <p>Live counters computed from every analysis stored in the database.</p>
+        </div>
+        {% if model %}
+            <p class="small">Serving <strong>{{ model.model_name }}</strong> &middot; trained {{ model.trained_at|pretty_time }}</p>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-4">
+        <div class="panel panel--tight stat"><span class="stat__label">Total URLs scanned</span><span class="stat__value">{{ statistics.total_scanned }}</span><span class="stat__hint">all time</span></div>
+        <div class="panel panel--tight stat stat--safe"><span class="stat__label">Safe</span><span class="stat__value">{{ statistics.safe }}</span><span class="stat__hint">{{ '%.1f'|format(statistics.safe / statistics.total_scanned * 100) if statistics.total_scanned else '0.0' }}% of scans</span></div>
+        <div class="panel panel--tight stat stat--suspicious"><span class="stat__label">Suspicious</span><span class="stat__value">{{ statistics.suspicious }}</span><span class="stat__hint">{{ '%.1f'|format(statistics.suspicious / statistics.total_scanned * 100) if statistics.total_scanned else '0.0' }}% of scans</span></div>
+        <div class="panel panel--tight stat stat--phishing"><span class="stat__label">Phishing</span><span class="stat__value">{{ statistics.phishing }}</span><span class="stat__hint">{{ '%.1f'|format(statistics.phishing / statistics.total_scanned * 100) if statistics.total_scanned else '0.0' }}% of scans</span></div>
+    </div>
+
+    <div class="grid grid-2 mt-2">
+        <div class="panel panel--tight stat stat--accent"><span class="stat__label">Average confidence</span><span class="stat__value">{{ '%.2f'|format(statistics.average_confidence) }}%</span><span class="stat__hint">mean confidence across stored analyses</span></div>
+        <div class="panel panel--tight stat"><span class="stat__label">Average risk score</span><span class="stat__value">{{ '%.1f'|format(statistics.average_risk_score) }}</span><span class="stat__hint">0 = benign, 100 = certain phishing</span></div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="grid grid-charts">
+        <div class="panel">
+            <div class="panel__title">Verdict distribution</div>
+            <div class="chart-box"><canvas id="chart-verdicts"></canvas></div>
+        </div>
+        <div class="panel">
+            <div class="panel__title">Detection trend (last 14 days)</div>
+            <div class="chart-box"><canvas id="chart-trend"></canvas></div>
+        </div>
+        <div class="panel">
+            <div class="panel__title">Risk-level distribution</div>
+            <div class="chart-box"><canvas id="chart-risk"></canvas></div>
+        </div>
+        <div class="panel">
+            <div class="panel__title">Model comparison (held-out test split)</div>
+            {% if model_metrics %}
+                <div class="chart-box"><canvas id="chart-models"></canvas></div>
+            {% else %}
+                <div class="chart-box"><div class="chart-empty">Train the model to populate this chart.<br>models/metrics.json was not found.</div></div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+{% if model %}
+<section class="section">
+    <div class="grid grid-2">
+        <div class="panel">
+            <div class="panel__title">Deployed model</div>
+            <dl class="kv">
+                <dt>Algorithm</dt><dd>{{ model.model_name }}</dd>
+                <dt>Trained at</dt><dd>{{ model.trained_at|pretty_time }}</dd>
+                <dt>Training rows</dt><dd>{{ '{:,}'.format(model.dataset.rows) if model.dataset.rows else 'n/a' }}</dd>
+                <dt>Model features</dt><dd>{{ model.n_features }}</dd>
+                <dt>Accuracy</dt><dd>{{ '%.2f'|format(model.metrics.accuracy * 100) }}%</dd>
+                <dt>Precision</dt><dd>{{ '%.2f'|format(model.metrics.precision * 100) }}%</dd>
+                <dt>Recall</dt><dd>{{ '%.2f'|format(model.metrics.recall * 100) }}%</dd>
+                <dt>F1 score</dt><dd>{{ '%.2f'|format(model.metrics.f1 * 100) }}%</dd>
+                <dt>ROC-AUC</dt><dd>{{ '%.2f'|format(model.metrics.roc_auc * 100) }}%</dd>
+                <dt>Suspicious threshold</dt><dd>{{ model.thresholds.suspicious }}</dd>
+                <dt>Phishing threshold</dt><dd>{{ model.thresholds.phishing }}</dd>
+            </dl>
+            <p class="small muted mt-1">Every figure above is read from the artefact written by the last training run.</p>
+        </div>
+        <div class="panel">
+            <div class="panel__title">Top feature importances</div>
+            <div class="chart-box chart-box--tall"><canvas id="chart-importance"></canvas></div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<section class="section">
+    <div class="panel panel--flush">
+        <div style="padding:1.25rem 1.5rem 0;"><div class="panel__title">Latest activity</div></div>
+        {% if recent %}
+        <div class="table-wrap">
+            <table class="data">
+                <thead><tr><th>URL</th><th>Verdict</th><th>Confidence</th><th>Risk</th><th>Date (UTC)</th></tr></thead>
+                <tbody>
+                {% for item in recent %}
+                    <tr>
+                        <td class="url-cell" title="{{ item.url }}">{{ item.url }}</td>
+                        <td><span class="pill is-{{ item.prediction|verdict_class }}">{{ item.prediction }}</span></td>
+                        <td class="mono">{{ '%.2f'|format(item.confidence) }}%</td>
+                        <td class="mono level-{{ item.risk_level|risk_class }}">{{ item.risk_score }}</td>
+                        <td class="mono small nowrap">{{ item.analysis_timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="empty-state"><strong>No activity yet</strong>Scanned URLs will appear here.</div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script id="dashboard-data" type="application/json">
+    {{ {'statistics': statistics, 'metrics': model_metrics, 'importances': model.feature_importances if model else {}}|tojson }}
+</script>
+<!-- Chart.js is vendored so the dashboard also works without internet access. -->
+<script src="{{ url_for('static', filename='js/vendor/chart.umd.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+{% endblock %}

@@ -1,0 +1,49 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# ---- Virtual environments ----
+venv/
+.venv/
+env/
+ENV/
+
+# ---- Environment / secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Trained model artefacts (regenerate with `python src/ml/train.py`) ----
+models/*.pkl
+models/*.joblib
+models/metrics.json
+
+# ---- Databases ----
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# ---- Logs ----
+logs/*.log
+
+# ---- Large / downloaded datasets ----
+data/*.csv
+!data/phishing_urls.csv
+
+# ---- Editors / OS ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

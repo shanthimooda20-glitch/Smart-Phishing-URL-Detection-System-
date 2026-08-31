@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="AI-powered URL intelligence for detecting suspicious and malicious websites.">
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128737;</text></svg>">
+</head>
+<body>
+<nav class="nav">
+    <div class="nav__inner">
+        <a class="nav__brand" href="{{ url_for('web.index') }}">
+            <span class="nav__mark" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+            </span>
+            PhishGuard
+        </a>
+        <div class="nav__links">
+            <a class="nav__link {{ 'is-active' if request.endpoint == 'web.index' }}" href="{{ url_for('web.index') }}">Scanner</a>
+            <a class="nav__link {{ 'is-active' if request.endpoint == 'web.dashboard' }}" href="{{ url_for('web.dashboard') }}">Dashboard</a>
+            <a class="nav__link {{ 'is-active' if request.endpoint == 'web.history' }}" href="{{ url_for('web.history') }}">History</a>
+            <a class="nav__link {{ 'is-active' if request.endpoint == 'web.about' }}" href="{{ url_for('web.about') }}">How it works</a>
+        </div>
+    </div>
+</nav>
+
+<main class="shell">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="mt-2">
+            {% for category, message in messages %}
+                <div class="flash flash--{{ category }}">
+                    <span aria-hidden="true">{{ '!' if category != 'info' else 'i' }}</span>
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    {% if not model_ready %}
+        <div class="banner">
+            <span aria-hidden="true">&#9888;</span>
+            <span>
+                <strong>No trained model found.</strong>
+                Run <code>python src/ml/train.py</code> to train the classifier, then reload this page.
+                Until then URL analysis is unavailable.
+            </span>
+        </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+    <div class="footer__inner">
+        <span>{{ app_name }} &middot; lexical URL classification, offline by design &mdash; submitted URLs are never visited.</span>
+        <span>Machine-learning demonstration project. Not a substitute for a commercial threat-intelligence feed.</span>
+    </div>
+</footer>
+
+<script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

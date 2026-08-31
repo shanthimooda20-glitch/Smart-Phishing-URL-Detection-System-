@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}{{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <span class="hero__eyebrow"><span class="pulse-dot"></span> Machine-learning URL intelligence</span>
+    <h1 class="hero__title">Smart <span>Phishing URL</span> Detection</h1>
+    <p class="hero__subtitle">AI-powered URL intelligence for detecting suspicious and malicious websites.</p>
+</section>
+
+<section class="scanner">
+    <div class="panel">
+        <div class="panel__title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+            URL Scanner
+        </div>
+
+        <form class="scanner__form" id="scan-form" method="post" action="{{ url_for('web.analyze') }}" novalidate>
+            <div class="scanner__field">
+                <span class="scanner__icon" aria-hidden="true">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"></path><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"></path></svg>
+                </span>
+                <input class="input" id="url-input" type="text" name="url" autocomplete="off" spellcheck="false"
+                       maxlength="{{ config.MAX_URL_LENGTH }}" placeholder="https://example.com/login"
+                       aria-label="URL to analyse" required>
+            </div>
+            <button class="btn" id="scan-button" type="submit" {{ 'disabled' if not model_ready }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h8l-1 8 10-12h-8z"></path></svg>
+                Analyze URL
+            </button>
+        </form>
+
+        <div class="scanner__meta">
+            <span>Try an example:</span>
+            <button type="button" class="chip js-example">{{ example_url }}</button>
+            <button type="button" class="chip js-example">http://paypal.com.secure-login.verify-account.xyz/signin</button>
+        </div>
+
+        <div class="scanline hidden" id="scan-progress"><div class="scanline__bar"></div></div>
+        <div class="scanner__status hidden" id="scan-status">Extracting lexical features&hellip;</div>
+    </div>
+
+    <p class="small muted mt-1" style="text-align:center;">
+        The URL is analysed as a <strong>string only</strong>. It is never opened, requested or rendered.
+    </p>
+</section>
+
+<section class="section">
+    <div class="section-head">
+        <h2>How a scan works</h2>
+        <p>Every step below runs locally on your machine.</p>
+    </div>
+    <div class="grid grid-2">
+        <div class="panel">
+            <div class="steps">
+                <div class="step"><div class="step__num">1</div><div class="step__body"><strong>Validation</strong><span>Scheme, length and hostname checks reject anything that is not an analysable http(s) URL.</span></div></div>
+                <div class="step"><div class="step__num">2</div><div class="step__body"><strong>Feature extraction</strong><span>28 lexical and host-based features &mdash; length, entropy, subdomain depth, suspicious keywords and more.</span></div></div>
+                <div class="step"><div class="step__num">3</div><div class="step__body"><strong>Classification</strong><span>A trained scikit-learn model returns the probability that the URL is phishing.</span></div></div>
+                <div class="step"><div class="step__num">4</div><div class="step__body"><strong>Risk scoring &amp; logging</strong><span>The probability becomes a 0&ndash;100 risk score, and the scan is stored for the dashboard.</span></div></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel__title">Recent scans</div>
+            {% if recent %}
+                <div class="table-wrap">
+                    <table class="data data--compact">
+                        <thead><tr><th>URL</th><th>Verdict</th><th class="text-right">Risk</th></tr></thead>
+                        <tbody>
+                        {% for item in recent %}
+                            <tr>
+                                <td class="url-cell" title="{{ item.url }}">{{ item.url }}</td>
+                                <td><span class="pill is-{{ item.prediction|verdict_class }}">{{ item.prediction }}</span></td>
+                                <td class="text-right mono">{{ item.risk_score }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <a class="btn btn--ghost btn--sm mt-2" href="{{ url_for('web.history') }}">View full history</a>
+            {% else %}
+                <div class="empty-state">
+                    <strong>No scans yet</strong>
+                    Analyse your first URL to start populating the dashboard.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

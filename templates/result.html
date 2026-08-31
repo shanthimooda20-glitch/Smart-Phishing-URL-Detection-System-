@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}{{ result.prediction }} &middot; Analysis result{% endblock %}
+
+{% block content %}
+{% set verdict = result.prediction|verdict_class %}
+<section class="section">
+    <div class="panel">
+        <div class="verdict">
+            <div>
+                <div class="panel__title mb-0">Analysis result</div>
+                <span class="verdict__badge is-{{ verdict }}">
+                    {% if verdict == 'safe' %}&#10003;{% elif verdict == 'suspicious' %}&#9888;{% else %}&#9760;{% endif %}
+                    {{ result.prediction }}
+                </span>
+                <code class="verdict__url">{{ result.url }}</code>
+
+                <div class="grid grid-metrics mt-2">
+                    <div class="stat stat--accent">
+                        <span class="stat__label">Confidence</span>
+                        <span class="stat__value">{{ '%.2f'|format(result.confidence) }}%</span>
+                        <span class="stat__hint">in the model's binary decision</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat__label">Phishing probability</span>
+                        <span class="stat__value">{{ '%.1f'|format(result.phishing_probability * 100) }}%</span>
+                        <span class="stat__hint">model output</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat__label">Model</span>
+                        <span class="stat__value" style="font-size:1.15rem;">{{ result.model_name }}</span>
+                        <span class="stat__hint">selected during training</span>
+                    </div>
+                </div>
+
+                <p class="verdict__summary">
+                    {% if verdict == 'safe' %}
+                        The lexical structure of this URL resembles the legitimate URLs in the training corpus.
+                    {% elif verdict == 'suspicious' %}
+                        The model is genuinely uncertain about this URL: its probability falls between the safe and phishing thresholds. Treat it with caution.
+                    {% else %}
+                        This URL's structure closely matches known phishing patterns. Do not enter credentials on it.
+                    {% endif %}
+                </p>
+            </div>
+
+            <div class="gauge">
+                <div class="gauge__ring" style="--value: {{ result.risk_score }}; --gauge-color: var(--{{ 'safe' if result.risk_level == 'Low' else 'suspicious' if result.risk_level == 'Medium' else 'phishing' if result.risk_level == 'High' else 'critical' }});">
+                    <div class="gauge__inner">
+                        <div class="gauge__score">{{ result.risk_score }}</div>
+                        <div class="gauge__caption">Risk score</div>
+                    </div>
+                </div>
+                <div class="gauge__level level-{{ result.risk_level|risk_class }}">{{ result.risk_level }} risk</div>
+                <div class="small muted">Analysed {{ result.timestamp|pretty_time }}</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="grid grid-2">
+        <div class="panel">
+            <div class="panel__title">Why was this URL classified this way?</div>
+            {% if result.contributions %}
+                <p class="small">
+                    Each row re-scores this exact URL with one feature reset to its training-set median.
+                    The number is the measured change in phishing probability &mdash; a real counterfactual for
+                    <em>this</em> URL, not a global importance score.
+                </p>
+                {% for item in result.contributions %}
+                    <div class="factor">
+                        <div class="factor__name">
+                            <div class="factor__label">{{ item.label }}</div>
+                            <div class="factor__value">value: {{ item.value }} &middot; global importance {{ item.global_importance }}%</div>
+                        </div>
+                        <div class="factor__bar">
+                            <div class="factor__fill {{ 'factor__fill--up' if item.impact > 0 else 'factor__fill--down' }}"
+                                 style="width: {{ [ (item.impact|abs) * 2, 100 ]|min }}%;"></div>
+                        </div>
+                        <div class="factor__impact {{ 'impact-up' if item.impact > 0 else 'impact-down' }}">
+                            {{ '+' if item.impact > 0 }}{{ '%.1f'|format(item.impact) }} pts
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="small">No single feature moved this prediction by more than half a point &mdash; the verdict comes from the combination of all features rather than one dominant signal.</p>
+            {% endif %}
+        </div>
+
+        <div class="panel">
+            <div class="panel__title">Observed indicators</div>
+            <p class="small">Factual observations about the URL string, independent of the model's decision.</p>
+            {% for indicator in result.indicators %}
+                <div class="indicator indicator--{{ indicator.level }}">
+                    <span class="indicator__icon" aria-hidden="true">{{ '&#10003;'|safe if indicator.level == 'good' else '&#9888;'|safe }}</span>
+                    <span>{{ indicator.text }}</span>
+                </div>
+            {% endfor %}
+
+            {% if not stored %}
+                <p class="small muted mt-2">This analysis could not be written to the database, so it will not appear in the history.</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="panel">
+        <div class="panel__title">Extracted feature vector ({{ result.features|length }} features)</div>
+        <div class="feature-grid">
+            {% for name, value in result.features.items() %}
+                <div class="feature-cell">
+                    <span>{{ name.replace('_', ' ') }}</span>
+                    <span>{{ '%g'|format(value) }}</span>
+                </div>
+            {% endfor %}
+        </div>
+        <div class="mt-2" style="display:flex; gap:.6rem; flex-wrap:wrap;">
+            <a class="btn btn--ghost btn--sm" href="{{ url_for('web.index') }}">Scan another URL</a>
+            <a class="btn btn--ghost btn--sm" href="{{ url_for('web.dashboard') }}">Open dashboard</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

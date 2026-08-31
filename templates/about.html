@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}How it works &middot; {{ app_name }}{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="section-head">
+        <div>
+            <h1 style="font-size:1.8rem;">How the detector works</h1>
+            <p>The full pipeline, its measured performance, and where it falls short.</p>
+        </div>
+    </div>
+
+    <div class="grid grid-2">
+        <div class="panel">
+            <div class="panel__title">Pipeline</div>
+            <div class="steps">
+                <div class="step"><div class="step__num">1</div><div class="step__body"><strong>Validate</strong><span>Only http/https URLs of a bounded length with a syntactically valid host are accepted.</span></div></div>
+                <div class="step"><div class="step__num">2</div><div class="step__body"><strong>Canonicalise</strong><span>The scheme and a leading <code>www.</code> are stripped and recorded separately, so a URL you type is measured the same way as the corpus the model learned from.</span></div></div>
+                <div class="step"><div class="step__num">3</div><div class="step__body"><strong>Extract 28 features</strong><span>Lengths, character counts, entropy, subdomain depth, keyword hits, TLD reputation and shortener detection.</span></div></div>
+                <div class="step"><div class="step__num">4</div><div class="step__body"><strong>Classify</strong><span>The trained model returns P(phishing). Thresholds turn it into Safe / Suspicious / Phishing.</span></div></div>
+                <div class="step"><div class="step__num">5</div><div class="step__body"><strong>Explain</strong><span>Each top feature is re-scored against its training median to measure what it did to <em>this</em> prediction.</span></div></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel__title">Measured performance</div>
+            {% if metrics %}
+                <div class="table-wrap">
+                    <table class="data">
+                        <thead><tr><th>Model</th><th>Accuracy</th><th>F1</th><th>ROC-AUC</th></tr></thead>
+                        <tbody>
+                        {% for entry in metrics.models %}
+                            <tr {{ 'style=color:var(--accent)'|safe if entry.name == metrics.best_model }}>
+                                <td>{{ entry.name }}{{ ' &#9733;'|safe if entry.name == metrics.best_model }}</td>
+                                <td class="mono">{{ '%.2f'|format(entry.accuracy * 100) }}%</td>
+                                <td class="mono">{{ '%.2f'|format(entry.f1 * 100) }}%</td>
+                                <td class="mono">{{ '%.2f'|format(entry.roc_auc * 100) }}%</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <p class="small muted mt-1">
+                    Held-out 20% test split of {{ '{:,}'.format(metrics.dataset.rows) }} URLs, produced by the last run of
+                    <code>python src/ml/train.py</code>. No figure on this page is hard-coded.
+                </p>
+            {% else %}
+                <p class="small">No training metrics found. Run <code>python src/ml/train.py</code>.</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="grid grid-2">
+        <div class="panel">
+            <div class="panel__title">Safety model</div>
+            <div class="indicator indicator--good"><span class="indicator__icon">&#10003;</span><span>Submitted URLs are treated as strings: never fetched, resolved, rendered or executed.</span></div>
+            <div class="indicator indicator--good"><span class="indicator__icon">&#10003;</span><span>Queries are parameterised through SQLAlchemy; sort and filter values are whitelisted.</span></div>
+            <div class="indicator indicator--good"><span class="indicator__icon">&#10003;</span><span>All output is escaped by Jinja&rsquo;s autoescaping, so a hostile URL cannot inject markup.</span></div>
+            <div class="indicator indicator--good"><span class="indicator__icon">&#10003;</span><span>Input length and request body size are bounded; stack traces are never returned to the client.</span></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel__title">Known limitations</div>
+            <div class="indicator indicator--warning"><span class="indicator__icon">&#9888;</span><span>The model sees only the URL string &mdash; it has no notion of domain age, reputation, WHOIS data or page content.</span></div>
+            <div class="indicator indicator--warning"><span class="indicator__icon">&#9888;</span><span>Legitimate URLs with hyphenated domains, deep subdomains or short cryptic paths can land in the Suspicious band.</span></div>
+            <div class="indicator indicator--warning"><span class="indicator__icon">&#9888;</span><span>A phishing page hosted on a compromised, ordinary-looking domain is largely invisible to lexical analysis.</span></div>
+            <div class="indicator indicator--warning"><span class="indicator__icon">&#9888;</span><span>The corpus is a historical snapshot; phishing tactics drift, so the model needs periodic retraining.</span></div>
+        </div>
+    </div>
+</section>
+
+{% if model %}
+<section class="section">
+    <div class="panel">
+        <div class="panel__title">Feature inventory ({{ model.n_features }} model features)</div>
+        <div class="feature-grid">
+            {% for name in model.feature_names %}
+                <div class="feature-cell"><span>{{ name.replace('_', ' ') }}</span><span>{{ '%.1f'|format((model.feature_importances.get(name, 0)) * 100) }}%</span></div>
+            {% endfor %}
+        </div>
+        {% if model.dropped_features %}
+            <p class="small muted mt-2">
+                Extracted but excluded from the model because the value never varies in the training corpus:
+                <code>{{ model.dropped_features|join(', ') }}</code>. It is still shown in the scan result as an observed indicator.
+            </p>
+        {% endif %}
+    </div>
+</section>
+{% endif %}
+{% endblock %}

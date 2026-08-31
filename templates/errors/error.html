@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} &middot; {{ app_name }}{% endblock %}
+{% block content %}
+<section class="section" style="max-width: 620px; margin-inline: auto;">
+    <div class="panel" style="text-align:center;">
+        <div class="stat__value" style="font-size:3.4rem; color:var(--accent);">{{ code }}</div>
+        <h1 style="font-size:1.5rem;">{{ title }}</h1>
+        <p>{{ message }}</p>
+        <a class="btn btn--ghost" href="{{ url_for('web.index') }}">Back to the scanner</a>
+    </div>
+</section>
+{% endblock %}
